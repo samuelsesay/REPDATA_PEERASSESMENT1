@@ -1,0 +1,124 @@
+  
+ ```{r setup, include=FALSE}
+ knitr::opts_chunk$set(echo = TRUE)
+ ```
+ # Peer-graded Assignment: Course Project 1#
+ ## Activity monitoring devices##
+
+ ## Loading and preprocessing the data
+ ### (1) get data
+
+ ```{r echo=TRUE}
+ if(!file.exists("repdata data activity.zip")) {
+       download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip","repdata data activity.zip")
+ }
+ unzip("repdata data activity.zip")
+ data <- read.csv("activity.csv")
+ ```
+
+ ### (2) Histogram of the total number of steps taken each day
+
+ ## What is mean total number of steps taken per day?
+ ```{r echo=TRUE}
+ daily_sum <- aggregate(steps~date,data=data,na.rm=TRUE,sum)
+
+ hist(daily_sum$steps,xlab="Steps/day",main="Histogram for steps per day")
+ ```
+
+ ### (3) Mean and median number of steps taken each day
+
+ ## What is the average daily activity pattern?
+ ```{r echo=TRUE}
+ mean_steps <- mean(daily_sum$steps)
+ median_steps <- median(daily_sum$steps)
+ ```
+
+ Mean for numbers of steps per day is `r as.character(round(mean_steps,2))` and median is `r median_steps`.
+
+ ### (4) Time series plot of the average number of steps taken
+
+ ## Imputing missing values
+ ```{r echo=TRUE}
+ interval_average <- aggregate(steps~interval,data=data,na.rm=TRUE,mean)
+ wm <- which.max(interval_average$steps)
+ interval_average$steps[wm]
+ interval_average$interval[wm]
+
+ library("ggplot2")
+ p <- ggplot(interval_average, aes(x=interval, y=steps)) +
+       geom_line() + 
+       xlab("intervals")+geom_point(aes(x=interval[wm], y=steps[wm]))+geom_text(aes(x=interval[wm]+150, y=steps[wm]+10,label=paste("[",interval[wm],", ",round(steps[wm]),"]")))
+ p
+ ```
+
+ ### (5) The 5-minute interval that, on average, contains the maximum number of steps
+
+ ## Are there differences in activity patterns between weekdays and weekends?
+ ```{r echo=TRUE}
+ interval_average <- aggregate(steps~interval,data=data,na.rm=TRUE,mean)
+ wm <- which.max(interval_average$steps)
+ interval_average$steps[wm]
+ interval_average$interval[wm]
+ ```
+
+ Maximal value is `r as.character(round(interval_average$steps[wm],2))` step for the interval `r interval_average$interval[wm]`.
+
+
+ ### (6) Code to describe and show a strategy for imputing missing data
+
+ I have taken into account two strategies for imputing missing values:
+
+ 1. not to change interval mean: we will replace each missing value for the mean of the corresponding interval. It means, that the mean of the interval over whole time will not change. The reason - we can expect, that the behavior of the person will be the same across the long term period.
+ 2. the similar to 1. - instead of mean we can use median which do not change medians of the corresponding interval over the whole period
+
+ As global median and mean is very similar (difference = 1.19), so the approaches are almost equivalent. I will use the case 1.
+
+ ```{r}
+
+ library("dplyr")
+
+ data_imp <- merge(x=data,y=interval_average, by="interval")
+ NAs <- is.na(data_imp$steps.x)
+ data_imp$steps.x[NAs]<-data_imp$steps.y[NAs]
+ data_imp <- data_imp %>% mutate(steps=steps.x)
+
+ ```
+ In the original data there was `r sum(NAs)` rows with NA. Those were replaced by mean of the corresponding interval.
+
+
+ ### (7) Histogram of the total number of steps taken each day after missing values are imputed
+
+ ```{r echo=TRUE}
+ daily_sum_imp <- aggregate(steps~date,data=data_imp,sum)
+
+ hist(daily_sum_imp$steps,xlab="Steps/day",main="Histogram for steps per day (with imputed values)")
+ ```
+
+ ### (8) Panel plot comparing the average number of steps taken per 5-minute interval across weekdays and weekends
+
+ ```{r}
+ library("dplyr")
+
+ data_imp <- data_imp %>% mutate(working=(as.POSIXlt(date)$wday>0 & as.POSIXlt(date)$wday<6))
+ interval_weekdays_average <- aggregate(steps~interval+working,data=data_imp,mean)
+
+ par(mfrow=c(1,2))
+ plot(type="l", x=interval_weekdays_average$interval[interval_weekdays_average$working], y=interval_weekdays_average$steps[interval_weekdays_average$working],xlab="Interval",ylab="working days",main="Time series - steps/interval")
+ plot(type="l", x=interval_weekdays_average$interval[!interval_weekdays_average$working], y=interval_weekdays_average$steps[!interval_weekdays_average$working],xlab="Interval",ylab="weekend")
+
+ ```
+
+ ### (9) All of the R code needed to reproduce the results (numbers, plots, etc.) in the report
+
+ DONE :)
+
+ ### Cleaning house
+ ```{r}
+ rm(data,
+       daily_sum,
+       mean_steps,median_steps,
+       interval_average, wm, p,
+       data_imp, NAs,
+       daily_sum_imp,
+       interval_weekdays_average
+    )
